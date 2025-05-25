@@ -1,9 +1,10 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Monthly Goal Tracker</title>
+  <title>Goal Tracker with Chart</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    body { font-family: Arial, sans-serif; max-width: 700px; margin: auto; padding: 20px; }
     input, button { padding: 10px; font-size: 16px; margin: 5px 0; }
     ul { list-style: none; padding: 0; }
     li { padding: 8px 0; cursor: pointer; }
@@ -11,7 +12,7 @@
   </style>
 </head>
 <body>
-  <h1>Monthly Goal Tracker</h1>
+  <h1>Goal Tracker with Daily Completion Chart</h1>
   
   <input id="goalInput" type="text" placeholder="Enter a new goal">
   <input id="dateInput" type="date" value="">
@@ -20,20 +21,18 @@
   <h2>Goals for <span id="monthYear"></span></h2>
   <ul id="goalList"></ul>
   
-  <p>Completed goals this month: <span id="completedCount">0</span></p>
+  <canvas id="goalChart" width="600" height="200"></canvas>
   
   <script>
     const goalInput = document.getElementById('goalInput');
     const dateInput = document.getElementById('dateInput');
     const goalList = document.getElementById('goalList');
     const monthYear = document.getElementById('monthYear');
-    const completedCount = document.getElementById('completedCount');
+    const ctx = document.getElementById('goalChart').getContext('2d');
     
-    // Set date input default to today
     const today = new Date();
     dateInput.value = today.toISOString().split('T')[0];
     
-    // Store goals as an array of objects
     let goals = [];
     
     function updateMonthYear() {
@@ -47,7 +46,7 @@
       if (!goalText) return alert('Please enter a goal.');
       if (!goalDate) return alert('Please enter a date.');
       
-      goals.push({ text: goalText, date: goalDate, done: false });
+      goals.push({ text: goalText, date: goalDate, done: false, doneDate: null });
       goalInput.value = '';
       dateInput.value = today.toISOString().split('T')[0];
       renderGoals();
@@ -58,8 +57,6 @@
       const currentMonth = today.getMonth();
       const currentYear = today.getFullYear();
       
-      let completed = 0;
-      
       goals.forEach((goal, index) => {
         const goalDate = new Date(goal.date);
         if (goalDate.getMonth() === currentMonth && goalDate.getFullYear() === currentYear) {
@@ -67,10 +64,10 @@
           li.textContent = `${goal.text} (Due: ${goal.date})`;
           if (goal.done) {
             li.classList.add('done');
-            completed++;
           }
           li.onclick = () => {
             goals[index].done = !goals[index].done;
+            goals[index].doneDate = goals[index].done ? new Date().toISOString().split('T')[0] : null;
             renderGoals();
           };
           li.ondblclick = () => {
@@ -80,8 +77,53 @@
           goalList.appendChild(li);
         }
       });
+      updateChart();
+    }
+    
+    function updateChart() {
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      const daysInMonth = new Date(currentYear, currentMonth + 1, 0).getDate();
       
-      completedCount.textContent = completed;
+      // Create an array to count done goals per day
+      const doneCounts = Array(daysInMonth).fill(0);
+      
+      goals.forEach(goal => {
+        if (goal.done && goal.doneDate) {
+          const doneDate = new Date(goal.doneDate);
+          if (doneDate.getMonth() === currentMonth && doneDate.getFullYear() === currentYear) {
+            doneCounts[doneDate.getDate() - 1]++;
+          }
+        }
+      });
+      
+      const labels = [];
+      for (let i = 1; i <= daysInMonth; i++) labels.push(i.toString());
+      
+      if (window.barChart) window.barChart.destroy();
+      
+      window.barChart = new Chart(ctx, {
+        type: 'bar',
+        data: {
+          labels: labels,
+          datasets: [{
+            label: 'Goals Completed',
+            data: doneCounts,
+            backgroundColor: 'rgba(54, 162, 235, 0.7)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }]
+        },
+        options: {
+          scales: {
+            y: {
+              beginAtZero: true,
+              precision: 0,
+              stepSize: 1
+            }
+          }
+        }
+      });
     }
     
     updateMonthYear();
