@@ -1,40 +1,91 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Goal Tracker</title>
+  <title>Monthly Goal Tracker</title>
   <style>
-    body { font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; }
-    input, button { padding: 10px; font-size: 16px; }
+    body { font-family: Arial, sans-serif; max-width: 600px; margin: auto; padding: 20px; }
+    input, button { padding: 10px; font-size: 16px; margin: 5px 0; }
     ul { list-style: none; padding: 0; }
-    li { padding: 8px 0; }
+    li { padding: 8px 0; cursor: pointer; }
     li.done { text-decoration: line-through; color: gray; }
   </style>
 </head>
 <body>
-  <h1>Goal Tracker</h1>
+  <h1>Monthly Goal Tracker</h1>
   
   <input id="goalInput" type="text" placeholder="Enter a new goal">
+  <input id="dateInput" type="date" value="">
   <button onclick="addGoal()">Add Goal</button>
   
+  <h2>Goals for <span id="monthYear"></span></h2>
   <ul id="goalList"></ul>
+  
+  <p>Completed goals this month: <span id="completedCount">0</span></p>
   
   <script>
     const goalInput = document.getElementById('goalInput');
+    const dateInput = document.getElementById('dateInput');
     const goalList = document.getElementById('goalList');
+    const monthYear = document.getElementById('monthYear');
+    const completedCount = document.getElementById('completedCount');
+    
+    // Set date input default to today
+    const today = new Date();
+    dateInput.value = today.toISOString().split('T')[0];
+    
+    // Store goals as an array of objects
+    let goals = [];
+    
+    function updateMonthYear() {
+      const options = { month: 'long', year: 'numeric' };
+      monthYear.textContent = today.toLocaleDateString(undefined, options);
+    }
     
     function addGoal() {
       const goalText = goalInput.value.trim();
+      const goalDate = dateInput.value;
       if (!goalText) return alert('Please enter a goal.');
+      if (!goalDate) return alert('Please enter a date.');
       
-      const li = document.createElement('li');
-      li.textContent = goalText;
-      
-      li.onclick = () => li.classList.toggle('done');
-      li.ondblclick = () => li.remove();
-      
-      goalList.appendChild(li);
+      goals.push({ text: goalText, date: goalDate, done: false });
       goalInput.value = '';
+      dateInput.value = today.toISOString().split('T')[0];
+      renderGoals();
     }
+    
+    function renderGoals() {
+      goalList.innerHTML = '';
+      const currentMonth = today.getMonth();
+      const currentYear = today.getFullYear();
+      
+      let completed = 0;
+      
+      goals.forEach((goal, index) => {
+        const goalDate = new Date(goal.date);
+        if (goalDate.getMonth() === currentMonth && goalDate.getFullYear() === currentYear) {
+          const li = document.createElement('li');
+          li.textContent = `${goal.text} (Due: ${goal.date})`;
+          if (goal.done) {
+            li.classList.add('done');
+            completed++;
+          }
+          li.onclick = () => {
+            goals[index].done = !goals[index].done;
+            renderGoals();
+          };
+          li.ondblclick = () => {
+            goals.splice(index, 1);
+            renderGoals();
+          };
+          goalList.appendChild(li);
+        }
+      });
+      
+      completedCount.textContent = completed;
+    }
+    
+    updateMonthYear();
+    renderGoals();
   </script>
 </body>
 </html>
