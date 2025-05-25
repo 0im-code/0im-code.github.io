@@ -1,10 +1,40 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>My First Website</title>
+  <title>Goal Tracker</title>
+  <style>
+    body { font-family: Arial, sans-serif; max-width: 500px; margin: auto; padding: 20px; }
+    input, button { padding: 10px; font-size: 16px; }
+    ul { list-style: none; padding: 0; }
+    li { padding: 8px 0; }
+    li.done { text-decoration: line-through; color: gray; }
+  </style>
 </head>
 <body>
-  <h1>Hello, everyone!</h1>
-  <p>This is my first website by happyH.</p>
+  <h1>Goal Tracker</h1>
+  
+  <input id="goalInput" type="text" placeholder="Enter a new goal">
+  <button onclick="addGoal()">Add Goal</button>
+  
+  <ul id="goalList"></ul>
+  
+  <script>
+    const goalInput = document.getElementById('goalInput');
+    const goalList = document.getElementById('goalList');
+    
+    function addGoal() {
+      const goalText = goalInput.value.trim();
+      if (!goalText) return alert('Please enter a goal.');
+      
+      const li = document.createElement('li');
+      li.textContent = goalText;
+      
+      li.onclick = () => li.classList.toggle('done');
+      li.ondblclick = () => li.remove();
+      
+      goalList.appendChild(li);
+      goalInput.value = '';
+    }
+  </script>
 </body>
 </html>
