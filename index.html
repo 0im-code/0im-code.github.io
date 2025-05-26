@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Goal Tracker with Yes/No Buttons</title>
+  <title>Goal Tracker with Yes/No and Counter</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -36,15 +36,22 @@
       padding: 4px 10px;
       font-size: 14px;
     }
+    #goalCount {
+      font-weight: bold;
+      text-align: center;
+      margin: 10px 0 20px;
+      font-size: 18px;
+    }
     canvas {
       margin-top: 40px;
     }
   </style>
 </head>
 <body>
-  <h1>Goal Tracker - Yes / No Chart</h1>
+  <h1>Goal Tracker - Yes / No with Counter</h1>
 
   <div class="goal-list" id="goalList"></div>
+  <div id="goalCount"></div>
 
   <canvas id="goalChart" width="800" height="400"></canvas>
 
@@ -56,7 +63,7 @@
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     const labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
 
-    // Sample goals for each day (you can add more!)
+    // Sample goals — add or change as needed
     const dailyGoals = {
       [day]: [
         { text: 'Drink water', done: null },
@@ -65,7 +72,6 @@
       ]
     };
 
-    // Load from localStorage
     function loadData() {
       const key = `goal-tracker-${year}-${month}`;
       const data = localStorage.getItem(key);
@@ -99,6 +105,16 @@
         `;
         goalList.appendChild(div);
       });
+
+      updateGoalCount();
+    }
+
+    function updateGoalCount() {
+      const counter = document.getElementById('goalCount');
+      const goals = dailyGoals[day] || [];
+      const doneCount = goals.filter(g => g.done === true).length;
+      const total = goals.length;
+      counter.textContent = `✅ ${doneCount} / ${total} goals completed`;
     }
 
     function setDone(index, value) {
