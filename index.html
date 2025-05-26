@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Editable Goal Chart</title>
+  <title>Goal Tracker with Yes/No Buttons</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
     body {
@@ -13,23 +13,27 @@
     h1 {
       text-align: center;
     }
-    .day-controls {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 8px;
-      margin-top: 20px;
-      justify-content: center;
+    .goal-list {
+      margin: 20px 0;
     }
-    .day-box {
+    .goal {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 8px 0;
+      padding: 10px;
       border: 1px solid #ccc;
-      padding: 8px;
-      border-radius: 8px;
-      text-align: center;
-      width: 80px;
+      border-radius: 6px;
+    }
+    .goal.done {
+      background-color: #d4edda;
+    }
+    .goal.missed {
+      background-color: #f8d7da;
     }
     button {
-      padding: 4px 8px;
-      margin: 2px;
+      margin-left: 10px;
+      padding: 4px 10px;
       font-size: 14px;
     }
     canvas {
@@ -38,20 +42,83 @@
   </style>
 </head>
 <body>
-  <h1>Goal Tracker - This Month</h1>
+  <h1>Goal Tracker - Yes / No Chart</h1>
 
-  <div class="day-controls" id="dayControls"></div>
+  <div class="goal-list" id="goalList"></div>
 
   <canvas id="goalChart" width="800" height="400"></canvas>
 
   <script>
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth(); // Jan = 0
+    const month = now.getMonth();
+    const day = now.getDate();
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-
-    const goalData = loadGoalData();
     const labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
+
+    // Sample goals for each day (you can add more!)
+    const dailyGoals = {
+      [day]: [
+        { text: 'Drink water', done: null },
+        { text: 'Exercise', done: null },
+        { text: 'Read 10 pages', done: null }
+      ]
+    };
+
+    // Load from localStorage
+    function loadData() {
+      const key = `goal-tracker-${year}-${month}`;
+      const data = localStorage.getItem(key);
+      if (data) {
+        Object.assign(dailyGoals, JSON.parse(data));
+      }
+    }
+
+    function saveData() {
+      const key = `goal-tracker-${year}-${month}`;
+      localStorage.setItem(key, JSON.stringify(dailyGoals));
+    }
+
+    function renderGoals() {
+      const goalList = document.getElementById('goalList');
+      goalList.innerHTML = `<h3>Today's Goals (${day}/${month + 1})</h3>`;
+
+      const todayGoals = dailyGoals[day] || [];
+      todayGoals.forEach((goal, index) => {
+        const div = document.createElement('div');
+        div.className = 'goal';
+        if (goal.done === true) div.classList.add('done');
+        if (goal.done === false) div.classList.add('missed');
+
+        div.innerHTML = `
+          <span>${goal.text}</span>
+          <div>
+            <button onclick="setDone(${index}, true)">Yes</button>
+            <button onclick="setDone(${index}, false)">No</button>
+          </div>
+        `;
+        goalList.appendChild(div);
+      });
+    }
+
+    function setDone(index, value) {
+      if (!dailyGoals[day]) return;
+      dailyGoals[day][index].done = value;
+      saveData();
+      renderGoals();
+      updateChart();
+    }
+
+    function getDailyCounts() {
+      const counts = Array(daysInMonth).fill(0);
+      for (let d = 1; d <= daysInMonth; d++) {
+        const goals = dailyGoals[d];
+        if (goals) {
+          counts[d - 1] = goals.filter(g => g.done === true).length;
+        }
+      }
+      return counts;
+    }
 
     const ctx = document.getElementById('goalChart').getContext('2d');
     const chart = new Chart(ctx, {
@@ -59,15 +126,14 @@
       data: {
         labels: labels,
         datasets: [{
-          label: 'Goals Done',
-          data: goalData,
+          label: 'Goals Completed',
+          data: getDailyCounts(),
           backgroundColor: 'rgba(54, 162, 235, 0.7)',
           borderColor: 'rgba(54, 162, 235, 1)',
           borderWidth: 1
         }]
       },
       options: {
-        responsive: true,
         scales: {
           y: {
             beginAtZero: true,
@@ -79,44 +145,14 @@
       }
     });
 
-    function renderDayControls() {
-      const container = document.getElementById('dayControls');
-      container.innerHTML = '';
-      for (let i = 0; i < daysInMonth; i++) {
-        const div = document.createElement('div');
-        div.className = 'day-box';
-        div.innerHTML = `
-          <strong>Day ${i + 1}</strong><br>
-          <span id="count-${i}">${goalData[i]}</span><br>
-          <button onclick="changeGoal(${i}, 1)">+</button>
-          <button onclick="changeGoal(${i}, -1)">–</button>
-        `;
-        container.appendChild(div);
-      }
-    }
-
-    function changeGoal(dayIndex, change) {
-      goalData[dayIndex] += change;
-      if (goalData[dayIndex] < 0) goalData[dayIndex] = 0;
-      document.getElementById(`count-${dayIndex}`).innerText = goalData[dayIndex];
-      chart.data.datasets[0].data = goalData;
+    function updateChart() {
+      chart.data.datasets[0].data = getDailyCounts();
       chart.update();
-      saveGoalData();
     }
 
-    function saveGoalData() {
-      const key = `goalData-${year}-${month}`;
-      localStorage.setItem(key, JSON.stringify(goalData));
-    }
-
-    function loadGoalData() {
-      const key = `goalData-${year}-${month}`;
-      const saved = localStorage.getItem(key);
-      if (saved) return JSON.parse(saved);
-      return Array(daysInMonth).fill(0);
-    }
-
-    renderDayControls();
+    loadData();
+    renderGoals();
+    updateChart();
   </script>
 </body>
 </html>
