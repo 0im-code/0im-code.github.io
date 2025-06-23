@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Goal Tracker Table</title>
+  <title>July Goal Tracker Table</title>
   <style>
     body {
       font-family: Arial, sans-serif;
@@ -76,7 +76,7 @@
   </style>
 </head>
 <body>
-  <h1>Monthly Goal Tracker Table</h1>
+  <h1>July 2025 Goal Tracker</h1>
 
   <div id="addGoalForm">
     <input type="text" id="goalInput" placeholder="Enter new goal..." />
@@ -90,15 +90,15 @@
     const goalInput = document.getElementById("goalInput");
     const addGoalBtn = document.getElementById("addGoalBtn");
 
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = now.getMonth(); // 0-indexed
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
+    // Fixed to July 2025
+    const year = 2025;
+    const month = 6; // July (0-indexed)
+    const daysInMonth = 31;
     const storageKey = `goal-grid-${year}-${month}`;
 
     let goalData = {
-      goals: [],      // goal names
-      grid: {}        // grid[day][goal] = true/false
+      goals: [],
+      grid: {}
     };
 
     function loadData() {
@@ -163,7 +163,7 @@
       for (let d = 1; d <= daysInMonth; d++) {
         const tr = document.createElement("tr");
         const dateCell = document.createElement("td");
-        dateCell.textContent = `${month + 1}/${d}`;
+        dateCell.textContent = `July ${d}`;
         tr.appendChild(dateCell);
 
         const dayKey = d.toString();
