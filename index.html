@@ -1,219 +1,214 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Goal Tracker with Add + Delete</title>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <title>Goal Tracker Table</title>
   <style>
     body {
       font-family: Arial, sans-serif;
-      max-width: 900px;
+      max-width: 1000px;
       margin: auto;
       padding: 20px;
     }
+
     h1 {
       text-align: center;
     }
-    .goal-list {
-      margin: 20px 0;
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 20px;
     }
-    .goal {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      margin: 8px 0;
-      padding: 10px;
+
+    th, td {
       border: 1px solid #ccc;
-      border-radius: 6px;
-    }
-    .goal.done {
-      background-color: #d4edda;
-    }
-    .goal.missed {
-      background-color: #f8d7da;
-    }
-    button {
-      margin-left: 5px;
-      padding: 4px 8px;
-      font-size: 14px;
-    }
-    #goalCount {
-      font-weight: bold;
+      padding: 8px;
       text-align: center;
-      margin: 10px 0 20px;
-      font-size: 18px;
+      min-width: 80px;
     }
+
+    th {
+      background-color: #f0f0f0;
+    }
+
+    .yes {
+      background-color: #c8e6c9;
+    }
+
+    .no {
+      background-color: #ffcdd2;
+    }
+
+    .goal-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .delete-btn {
+      margin-left: 5px;
+      cursor: pointer;
+      color: red;
+      font-weight: bold;
+    }
+
     #addGoalForm {
       display: flex;
       justify-content: center;
-      margin-bottom: 20px;
+      margin-top: 20px;
     }
-    #newGoalInput {
+
+    #goalInput {
       padding: 8px;
       font-size: 14px;
-      width: 70%;
+      width: 60%;
     }
-    #addGoalButton {
+
+    #addGoalBtn {
       padding: 8px 16px;
       font-size: 14px;
       margin-left: 10px;
     }
-    canvas {
-      margin-top: 40px;
+
+    .clickable {
+      cursor: pointer;
     }
   </style>
 </head>
 <body>
-  <h1>Goal Tracker - Add, Delete, Chart</h1>
-
-  <div id="goalList"></div>
-  <div id="goalCount"></div>
+  <h1>Monthly Goal Tracker Table</h1>
 
   <div id="addGoalForm">
-    <input type="text" id="newGoalInput" placeholder="Enter a new goal...">
-    <button id="addGoalButton">Add Goal</button>
+    <input type="text" id="goalInput" placeholder="Enter new goal..." />
+    <button id="addGoalBtn">Add Goal</button>
   </div>
 
-  <canvas id="goalChart" width="800" height="400"></canvas>
+  <table id="goalTable"></table>
 
   <script>
+    const table = document.getElementById("goalTable");
+    const goalInput = document.getElementById("goalInput");
+    const addGoalBtn = document.getElementById("addGoalBtn");
+
     const now = new Date();
     const year = now.getFullYear();
-    const month = now.getMonth();
-    const day = now.getDate();
+    const month = now.getMonth(); // 0-indexed
     const daysInMonth = new Date(year, month + 1, 0).getDate();
-    const labels = Array.from({ length: daysInMonth }, (_, i) => (i + 1).toString());
+    const storageKey = `goal-grid-${year}-${month}`;
 
-    const dailyGoals = {};
+    let goalData = {
+      goals: [],      // goal names
+      grid: {}        // grid[day][goal] = true/false
+    };
 
     function loadData() {
-      const key = `goal-tracker-${year}-${month}`;
-      const data = localStorage.getItem(key);
-      if (data) {
-        Object.assign(dailyGoals, JSON.parse(data));
-      }
-
-      if (!dailyGoals[day]) {
-        dailyGoals[day] = [];
+      const saved = localStorage.getItem(storageKey);
+      if (saved) {
+        goalData = JSON.parse(saved);
+      } else {
+        goalData = { goals: [], grid: {} };
       }
     }
 
     function saveData() {
-      const key = `goal-tracker-${year}-${month}`;
-      localStorage.setItem(key, JSON.stringify(dailyGoals));
+      localStorage.setItem(storageKey, JSON.stringify(goalData));
     }
 
-    function renderGoals() {
-      const goalList = document.getElementById('goalList');
-      goalList.innerHTML = `<h3>Today's Goals (${day}/${month + 1})</h3>`;
+    function renderTable() {
+      table.innerHTML = "";
 
-      const todayGoals = dailyGoals[day] || [];
-      todayGoals.forEach((goal, index) => {
-        const div = document.createElement('div');
-        div.className = 'goal';
-        if (goal.done === true) div.classList.add('done');
-        if (goal.done === false) div.classList.add('missed');
+      // Header row
+      const thead = document.createElement("thead");
+      const headerRow = document.createElement("tr");
 
-        div.innerHTML = `
-          <span>${goal.text}</span>
-          <div>
-            <button onclick="setDone(${index}, true)">Yes</button>
-            <button onclick="setDone(${index}, false)">No</button>
-            <button onclick="deleteGoal(${index})">🗑️</button>
-          </div>
-        `;
-        goalList.appendChild(div);
-      });
+      const dateTh = document.createElement("th");
+      dateTh.textContent = "Date";
+      headerRow.appendChild(dateTh);
 
-      updateGoalCount();
-    }
+      goalData.goals.forEach((goal, i) => {
+        const th = document.createElement("th");
+        const div = document.createElement("div");
+        div.className = "goal-header";
 
-    function updateGoalCount() {
-      const counter = document.getElementById('goalCount');
-      const goals = dailyGoals[day] || [];
-      const doneCount = goals.filter(g => g.done === true).length;
-      const total = goals.length;
-      counter.textContent = `✅ ${doneCount} / ${total} goals completed`;
-    }
+        const span = document.createElement("span");
+        span.textContent = goal;
 
-    function setDone(index, value) {
-      if (!dailyGoals[day]) return;
-      dailyGoals[day][index].done = value;
-      saveData();
-      renderGoals();
-      updateChart();
-    }
-
-    function deleteGoal(index) {
-      if (!dailyGoals[day]) return;
-      dailyGoals[day].splice(index, 1);
-      saveData();
-      renderGoals();
-      updateChart();
-    }
-
-    function getDailyCounts() {
-      const counts = Array(daysInMonth).fill(0);
-      for (let d = 1; d <= daysInMonth; d++) {
-        const goals = dailyGoals[d];
-        if (goals) {
-          counts[d - 1] = goals.filter(g => g.done === true).length;
-        }
-      }
-      return counts;
-    }
-
-    function addGoal() {
-      const input = document.getElementById('newGoalInput');
-      const text = input.value.trim();
-      if (text === "") return;
-
-      if (!dailyGoals[day]) dailyGoals[day] = [];
-      dailyGoals[day].push({ text, done: null });
-
-      input.value = "";
-      saveData();
-      renderGoals();
-      updateChart();
-    }
-
-    document.getElementById('addGoalButton').addEventListener('click', addGoal);
-    document.getElementById('newGoalInput').addEventListener('keypress', function(e) {
-      if (e.key === 'Enter') addGoal();
-    });
-
-    const ctx = document.getElementById('goalChart').getContext('2d');
-    const chart = new Chart(ctx, {
-      type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{
-          label: 'Goals Completed',
-          data: getDailyCounts(),
-          backgroundColor: 'rgba(54, 162, 235, 0.7)',
-          borderColor: 'rgba(54, 162, 235, 1)',
-          borderWidth: 1
-        }]
-      },
-      options: {
-        scales: {
-          y: {
-            beginAtZero: true,
-            ticks: {
-              precision: 0
+        const del = document.createElement("span");
+        del.className = "delete-btn";
+        del.textContent = "🗑️";
+        del.onclick = () => {
+          goalData.goals.splice(i, 1);
+          for (let d = 1; d <= daysInMonth; d++) {
+            const dayKey = d.toString();
+            if (goalData.grid[dayKey]) {
+              delete goalData.grid[dayKey][goal];
             }
           }
-        }
-      }
-    });
+          saveData();
+          renderTable();
+        };
 
-    function updateChart() {
-      chart.data.datasets[0].data = getDailyCounts();
-      chart.update();
+        div.appendChild(span);
+        div.appendChild(del);
+        th.appendChild(div);
+        headerRow.appendChild(th);
+      });
+
+      thead.appendChild(headerRow);
+      table.appendChild(thead);
+
+      // Body rows
+      const tbody = document.createElement("tbody");
+
+      for (let d = 1; d <= daysInMonth; d++) {
+        const tr = document.createElement("tr");
+        const dateCell = document.createElement("td");
+        dateCell.textContent = `${month + 1}/${d}`;
+        tr.appendChild(dateCell);
+
+        const dayKey = d.toString();
+        if (!goalData.grid[dayKey]) {
+          goalData.grid[dayKey] = {};
+        }
+
+        goalData.goals.forEach(goal => {
+          const td = document.createElement("td");
+          td.className = "clickable";
+
+          const done = goalData.grid[dayKey][goal] || false;
+          td.classList.add(done ? "yes" : "no");
+          td.textContent = done ? "✅" : "❌";
+
+          td.onclick = () => {
+            goalData.grid[dayKey][goal] = !done;
+            saveData();
+            renderTable();
+          };
+
+          tr.appendChild(td);
+        });
+
+        tbody.appendChild(tr);
+      }
+
+      table.appendChild(tbody);
     }
 
+    addGoalBtn.onclick = () => {
+      const goalName = goalInput.value.trim();
+      if (!goalName) return;
+
+      if (!goalData.goals.includes(goalName)) {
+        goalData.goals.push(goalName);
+        saveData();
+        goalInput.value = "";
+        renderTable();
+      }
+    };
+
+    // Initial load
     loadData();
-    renderGoals();
-    updateChart();
+    renderTable();
   </script>
 </body>
 </html>
