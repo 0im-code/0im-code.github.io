@@ -1,4 +1,4 @@
-!DOCTYPE html>
+<!DOCTYPE html>
 <html>
 <head>
   <title>July Goal Tracker</title>
@@ -65,19 +65,13 @@
       width: 60%;
     }
 
-    #addGoalBtn, #resetBtn {
+    #addGoalBtn {
       padding: 8px 16px;
       font-size: 14px;
     }
 
     .clickable {
       cursor: pointer;
-    }
-
-    #resetBtn {
-      background-color: #ffdddd;
-      border: 1px solid #f00;
-      color: #a00;
     }
   </style>
 </head>
@@ -87,7 +81,6 @@
   <div id="addGoalForm">
     <input type="text" id="goalInput" placeholder="Enter new goal..." />
     <button id="addGoalBtn">Add Goal</button>
-    <button id="resetBtn" onclick="resetData()">Reset All</button>
   </div>
 
   <table id="goalTable"></table>
@@ -122,7 +115,7 @@
     function renderTable() {
       table.innerHTML = "";
 
-      // Header
+      // Header row
       const thead = document.createElement("thead");
       const headerRow = document.createElement("tr");
       const dateTh = document.createElement("th");
@@ -161,7 +154,7 @@
       thead.appendChild(headerRow);
       table.appendChild(thead);
 
-      // Body
+      // Body rows
       const tbody = document.createElement("tbody");
 
       for (let d = 1; d <= daysInMonth; d++) {
@@ -179,12 +172,23 @@
           const td = document.createElement("td");
           td.className = "clickable";
 
-          const done = goalData.grid[dayKey][goal] || false;
-          td.classList.add(done ? "yes" : "no");
-          td.textContent = done ? "✅" : "❌";
+          const value = goalData.grid[dayKey][goal];
+          if (value === true) {
+            td.classList.add("yes");
+            td.textContent = "✅";
+          } else if (value === false) {
+            td.classList.add("no");
+            td.textContent = "❌";
+          } else {
+            td.textContent = ""; // leave blank
+          }
 
           td.onclick = () => {
-            goalData.grid[dayKey][goal] = !done;
+            const current = goalData.grid[dayKey][goal];
+            goalData.grid[dayKey][goal] =
+              current === true ? false :
+              current === false ? undefined :
+              true;
             saveData();
             renderTable();
           };
@@ -209,14 +213,6 @@
         renderTable();
       }
     };
-
-    function resetData() {
-      if (confirm("Are you sure you want to delete all data for July 2025?")) {
-        localStorage.removeItem(storageKey);
-        goalData = { goals: [], grid: {} };
-        renderTable();
-      }
-    }
 
     loadData();
     renderTable();
