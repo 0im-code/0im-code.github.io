@@ -1,64 +1,109 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>goals</title>
+  <title>Advanced Goal Tracker</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
-    .goal { margin-bottom: 10px; }
-    button { margin-left: 5px; }
+    table, td, th { border: 1px solid black; border-collapse: collapse; }
+    th, td { padding: 5px; text-align: center; }
+    .done { background-color: #c8f7c5; }
+    .notdone { background-color: #f7c5c5; }
+    select, input, button { margin: 5px; }
   </style>
 </head>
 <body>
   <h1>Goal Tracker</h1>
 
-  <input type="text" id="newGoalInput" placeholder="Enter a new goal">
+  <label for="monthSelect">Choose Month:</label>
+  <select id="monthSelect" onchange="renderTable()">
+    <option value="01">January</option>
+    <option value="02">February</option>
+    <option value="03">March</option>
+    <option value="04">April</option>
+    <option value="05">May</option>
+    <option value="06">June</option>
+    <option value="07">July</option>
+    <option value="08">August</option>
+    <option value="09">September</option>
+    <option value="10">October</option>
+    <option value="11">November</option>
+    <option value="12">December</option>
+  </select>
+
+  <input type="text" id="newGoalInput" placeholder="Enter a goal">
   <button onclick="addGoal()">Add Goal</button>
 
-  <div id="goalList"></div>
+  <div id="trackerTable"></div>
 
   <script>
-    const goals = [];
+    let goals = JSON.parse(localStorage.getItem("goals") || "[]");
+    let progress = JSON.parse(localStorage.getItem("progress") || "{}");
 
-    function addGoal() {
-      const goalText = document.getElementById("newGoalInput").value.trim();
-      if (goalText === "") return;
-
-      const goal = {
-        text: goalText,
-        done: null,
-      };
-      goals.push(goal);
-      document.getElementById("newGoalInput").value = "";
-      renderGoals();
+    function daysInMonth(month) {
+      return new Date(2025, parseInt(month), 0).getDate();
     }
 
-    function markDone(index, status) {
-      goals[index].done = status;
-      renderGoals();
+    function saveData() {
+      localStorage.setItem("goals", JSON.stringify(goals));
+      localStorage.setItem("progress", JSON.stringify(progress));
+    }
+
+    function addGoal() {
+      const input = document.getElementById("newGoalInput");
+      const text = input.value.trim();
+      if (text === "") return;
+      goals.push(text);
+      input.value = "";
+      saveData();
+      renderTable();
     }
 
     function deleteGoal(index) {
+      const month = document.getElementById("monthSelect").value;
       goals.splice(index, 1);
-      renderGoals();
+      if (progress[month]) {
+        progress[month].splice(index, 1);
+      }
+      saveData();
+      renderTable();
     }
 
-    function renderGoals() {
-      const list = document.getElementById("goalList");
-      list.innerHTML = "";
-      goals.forEach((goal, i) => {
-        const div = document.createElement("div");
-        div.className = "goal";
-        div.innerHTML = `
-          ${goal.text}
-          <button onclick="markDone(${i}, true)">Yes Done</button>
-          <button onclick="markDone(${i}, false)">No Not Done</button>
-          <button onclick="deleteGoal(${i})">🗑️ Delete</button>
-          <strong>${goal.done === true ? '✔' : goal.done === false ? '✘' : ''}</strong>
-        `;
-        list.appendChild(div);
-      });
+    function toggleStatus(goalIndex, day) {
+      const month = document.getElementById("monthSelect").value;
+      if (!progress[month]) progress[month] = [];
+      if (!progress[month][goalIndex]) progress[month][goalIndex] = [];
+
+      const current = progress[month][goalIndex][day];
+      progress[month][goalIndex][day] = current === "✔" ? "✘" : current === "✘" ? "" : "✔";
+
+      saveData();
+      renderTable();
     }
+
+    function renderTable() {
+      const month = document.getElementById("monthSelect").value;
+      const days = daysInMonth(month);
+      const tableDiv = document.getElementById("trackerTable");
+
+      let html = "<table><thead><tr><th>Goal</th>";
+      for (let d = 1; d <= days; d++) html += `<th>${d}</th>`;
+      html += "<th>Delete</th></tr></thead><tbody>";
+
+      goals.forEach((goal, i) => {
+        html += `<tr><td>${goal}</td>`;
+        for (let d = 1; d <= days; d++) {
+          const status = (progress[month] && progress[month][i] && progress[month][i][d]) || "";
+          const className = status === "✔" ? "done" : status === "✘" ? "notdone" : "";
+          html += `<td class="${className}" onclick="toggleStatus(${i}, ${d})">${status}</td>`;
+        }
+        html += `<td><button onclick="deleteGoal(${i})">🗑️</button></td></tr>`;
+      });
+
+      html += "</tbody></table>";
+      tableDiv.innerHTML = html;
+    }
+
+    renderTable(); // load on page open
   </script>
 </body>
 </html>
-
