@@ -37,6 +37,11 @@
       renderGoals();
     }
 
+    function deleteGoal(index) {
+      goals.splice(index, 1);
+      renderGoals();
+    }
+
     function renderGoals() {
       const list = document.getElementById("goalList");
       list.innerHTML = "";
@@ -47,6 +52,7 @@
           ${goal.text}
           <button onclick="markDone(${i}, true)">Yes Done</button>
           <button onclick="markDone(${i}, false)">No Not Done</button>
+          <button onclick="deleteGoal(${i})">🗑️ Delete</button>
           <strong>${goal.done === true ? '✔' : goal.done === false ? '✘' : ''}</strong>
         `;
         list.appendChild(div);
