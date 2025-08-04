@@ -13,10 +13,10 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>Goal Tracker advanced version</h1>
+  <h1>Goal Tracker</h1>
 
   <label for="trackMode">Track by:</label>
-  <select id="trackMode" onchange="renderTable()">
+  <select id="trackMode" onchange="updateSelectors(); renderTable()">
     <option value="day" selected>Day</option>
     <option value="week">Week</option>
     <option value="month">Month</option>
@@ -31,6 +31,9 @@
     <option value="month">Month</option>
     <option value="year">Year</option>
   </select>
+
+  <label for="yearSelect">Choose Year:</label>
+  <select id="yearSelect" onchange="renderTable()"></select>
 
   <label for="monthSelect">Choose Month:</label>
   <select id="monthSelect" onchange="renderTable()">
@@ -66,13 +69,25 @@
     let progress = JSON.parse(localStorage.getItem("progress") || "{}");
     let chart = null;
 
-    function daysInMonth(month) {
-      return new Date(2025, parseInt(month), 0).getDate();
+    const yearSelect = document.getElementById("yearSelect");
+    const currentYear = new Date().getFullYear();
+    for (let y = 2000; y <= currentYear; y++) {
+      const option = document.createElement("option");
+      option.value = y;
+      option.textContent = y;
+      yearSelect.appendChild(option);
     }
+    yearSelect.value = currentYear;
 
     function saveData() {
       localStorage.setItem("goals", JSON.stringify(goals));
       localStorage.setItem("progress", JSON.stringify(progress));
+    }
+
+    function updateSelectors() {
+      const mode = document.getElementById("trackMode").value;
+      document.getElementById("monthSelect").style.display = (mode !== "year") ? "inline" : "none";
+      saveData();
     }
 
     function addGoal() {
@@ -101,7 +116,8 @@
     function toggleStatus(goalIndex, unitKey) {
       const trackMode = document.getElementById("trackMode").value;
       const month = document.getElementById("monthSelect").value;
-      const key = `${trackMode}-${month}`;
+      const year = document.getElementById("yearSelect").value;
+      const key = `${trackMode}-${year}-${month}`;
       if (!progress[key]) progress[key] = [];
       if (!progress[key][goalIndex]) progress[key][goalIndex] = {};
       const current = progress[key][goalIndex][unitKey];
@@ -110,23 +126,15 @@
       renderTable();
     }
 
-    function getGoalPercent(index, mode, month, days) {
+    function getGoalPercent(index, mode, year, month) {
       let count = 0;
       let total = 0;
-      if (mode === "year") {
-        for (let m = 1; m <= 12; m++) {
-          const key = `year-${m.toString().padStart(2, '0')}`;
-          const entry = progress[key] && progress[key][index];
-          if (!entry) continue;
-          for (let d in entry) {
-            if (entry[d] === "✔") count++;
-            total++;
-          }
-        }
-      } else {
-        const key = `${mode}-${month}`;
-        const entry = progress[key] && progress[key][index];
-        if (!entry) return { percent: 0, count: 0, total: 0 };
+      for (let key in progress) {
+        if (!progress[key][index]) continue;
+        if (!key.startsWith(mode)) continue;
+        if (!key.includes(year)) continue;
+        if (mode !== "year" && !key.includes(month)) continue;
+        const entry = progress[key][index];
         for (let d in entry) {
           if (entry[d] === "✔") count++;
           total++;
@@ -137,12 +145,12 @@
 
     function renderTable() {
       const trackMode = document.getElementById("trackMode").value;
-      const month = document.getElementById("monthSelect").value;
-      const viewPerson = document.getElementById("personFilter").value;
       const sortMode = document.getElementById("sortMode").value;
-      const days = daysInMonth(month);
-      const tableDiv = document.getElementById("trackerTable");
+      const viewPerson = document.getElementById("personFilter").value;
+      const month = document.getElementById("monthSelect").value;
+      const year = document.getElementById("yearSelect").value;
 
+      const tableDiv = document.getElementById("trackerTable");
       const uniquePeople = [...new Set(goals.map(g => g.person))];
       const filter = document.getElementById("personFilter");
       filter.innerHTML = '<option value="">All</option>' + uniquePeople.map(p => `<option value="${p}">${p}</option>`).join('');
@@ -151,13 +159,17 @@
       let goalList = goals.map((g, i) => ({ ...g, index: i }));
       if (viewPerson) goalList = goalList.filter(g => g.person === viewPerson);
       if (sortMode !== "none") {
-        goalList.sort((a, b) => getGoalPercent(b.index, sortMode, month, days).percent - getGoalPercent(a.index, sortMode, month, days).percent);
+        goalList.sort((a, b) =>
+          getGoalPercent(b.index, sortMode, year, month).percent -
+          getGoalPercent(a.index, sortMode, year, month).percent
+        );
       }
 
       let html = `<table><thead><tr><th>Goal</th>`;
       let unitKeys = [];
 
       if (trackMode === "day") {
+        const days = new Date(year, parseInt(month), 0).getDate();
         for (let d = 1; d <= days; d++) {
           html += `<th>${d}</th>`;
           unitKeys.push(d);
@@ -170,28 +182,27 @@
       } else if (trackMode === "month") {
         html += `<th>${month}</th>`;
         unitKeys.push(month);
-      } else if (trackMode === "year") {
-        html += `<th>Year</th>`;
-        unitKeys.push("year");
+      } else {
+        html += `<th>${year}</th>`;
+        unitKeys.push(year);
       }
 
       html += `<th>Progress</th><th>Delete</th></tr></thead><tbody>`;
-
       goalList.forEach((g, rank) => {
+        const key = `${trackMode}-${year}-${month}`;
         const rankLabel = sortMode === "none" ? "" : `${rank + 1}. `;
         html += `<tr><td>${rankLabel}${g.name} <span style='font-size:smaller;'>(${g.person})</span></td>`;
-        const key = `${trackMode}-${month}`;
         unitKeys.forEach(k => {
           const status = (progress[key] && progress[key][g.index] && progress[key][g.index][k]) || "";
           const className = status === "✔" ? "done" : status === "✘" ? "notdone" : "";
           html += `<td class="${className}" onclick="toggleStatus(${g.index}, '${k}')">${status}</td>`;
         });
-        const { count, total, percent } = getGoalPercent(g.index, sortMode === "none" ? trackMode : sortMode, month, days);
+        const { count, total, percent } = getGoalPercent(g.index, sortMode === "none" ? trackMode : sortMode, year, month);
         html += `<td>${count} / ${total} (${percent}%)</td>`;
         html += `<td><button onclick="deleteGoal(${g.index})">🗑️</button></td></tr>`;
       });
 
-      html += `</tbody></table>`;
+      html += "</tbody></table>";
       tableDiv.innerHTML = html;
       renderStats(goalList);
     }
@@ -201,7 +212,6 @@
       let totalGoals = goalList.length;
       let totalChecks = 0;
       let totalDays = 0;
-
       goalList.forEach(g => {
         for (let k in progress) {
           const entry = progress[k][g.index];
@@ -212,13 +222,12 @@
           }
         }
       });
-
       const avg = totalGoals ? (totalChecks / totalGoals).toFixed(1) : 0;
       const perc = totalDays ? Math.round((totalChecks / totalDays) * 100) : 0;
-
       summary.innerHTML = `<p><b>All Goals Total:</b> ${totalChecks} / ${totalDays} ✔ (${perc}% total)<br><b>Avg per Goal:</b> ${avg} days ✔</p>`;
     }
 
+    updateSelectors();
     renderTable();
   </script>
 </body>
