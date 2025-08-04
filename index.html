@@ -1,21 +1,56 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>my first code</title>
+  <title>Goal Tracker</title>
+  <style>
+    body { font-family: sans-serif; padding: 20px; }
+    .goal { margin-bottom: 10px; }
+    button { margin-left: 5px; }
+  </style>
 </head>
 <body>
-  <h1>my first code</h1>
-  <p id="goaltext">no tv</p>
-  <button onclick="markdone()">yes done</button>
-  <button onclick="marknotdone()">no not done</button>
-  <p id="status"></p>
+  <h1>Goal Tracker</h1>
 
-  <script> 
-    function markdone() {
-      document.getElementById("status").innerText = "Goal completed!";
+  <input type="text" id="newGoalInput" placeholder="Enter a new goal">
+  <button onclick="addGoal()">Add Goal</button>
+
+  <div id="goalList"></div>
+
+  <script>
+    const goals = [];
+
+    function addGoal() {
+      const goalText = document.getElementById("newGoalInput").value.trim();
+      if (goalText === "") return;
+
+      const goal = {
+        text: goalText,
+        done: null,
+      };
+      goals.push(goal);
+      document.getElementById("newGoalInput").value = "";
+      renderGoals();
     }
-    function marknotdone() {
-      document.getElementById("status").innerText = "Goal incomplete";
+
+    function markDone(index, status) {
+      goals[index].done = status;
+      renderGoals();
+    }
+
+    function renderGoals() {
+      const list = document.getElementById("goalList");
+      list.innerHTML = "";
+      goals.forEach((goal, i) => {
+        const div = document.createElement("div");
+        div.className = "goal";
+        div.innerHTML = `
+          ${goal.text}
+          <button onclick="markDone(${i}, true)">Yes Done</button>
+          <button onclick="markDone(${i}, false)">No Not Done</button>
+          <strong>${goal.done === true ? '✔' : goal.done === false ? '✘' : ''}</strong>
+        `;
+        list.appendChild(div);
+      });
     }
   </script>
 </body>
