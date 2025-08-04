@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <title>Advanced Goal Tracker with People</title>
+  <title>Advanced Goal Tracker with Full Stats</title>
   <style>
     body { font-family: sans-serif; padding: 20px; }
     table, td, th { border: 1px solid black; border-collapse: collapse; }
@@ -20,6 +20,15 @@
     <option value="day">Day</option>
     <option value="week">Week</option>
     <option value="month" selected>Month</option>
+    <option value="year">Year</option>
+  </select>
+
+  <label for="sortMode">Sort by:</label>
+  <select id="sortMode" onchange="renderTable()">
+    <option value="none">None</option>
+    <option value="day">Day</option>
+    <option value="week">Week</option>
+    <option value="month">Month</option>
     <option value="year">Year</option>
   </select>
 
@@ -44,13 +53,13 @@
     <option value="">All</option>
   </select>
 
-  <br>
   <input type="text" id="newGoalInput" placeholder="Enter a goal">
   <input type="text" id="personInput" placeholder="Person">
   <button onclick="addGoal()">Add Goal</button>
 
   <div id="trackerTable"></div>
   <canvas id="summaryChart" height="150"></canvas>
+  <div id="summaryStats"></div>
 
   <script>
     let goals = JSON.parse(localStorage.getItem("goals") || "[]");
@@ -79,13 +88,12 @@
     }
 
     function deleteGoal(index) {
-      const month = document.getElementById("monthSelect").value;
-      goals.splice(index, 1);
       for (let key in progress) {
         if (progress[key][index]) {
           progress[key].splice(index, 1);
         }
       }
+      goals.splice(index, 1);
       saveData();
       renderTable();
     }
@@ -94,17 +102,55 @@
       const month = document.getElementById("monthSelect").value;
       if (!progress[month]) progress[month] = [];
       if (!progress[month][goalIndex]) progress[month][goalIndex] = [];
-
       const current = progress[month][goalIndex][day];
       progress[month][goalIndex][day] = current === "✔" ? "✘" : current === "✘" ? "" : "✔";
-
       saveData();
       renderTable();
+    }
+
+    function getGoalPercent(index, mode, month, days) {
+      let count = 0;
+      let total = 0;
+      if (mode === "year") {
+        for (let m = 1; m <= 12; m++) {
+          const mStr = m.toString().padStart(2, '0');
+          if (!progress[mStr] || !progress[mStr][index]) continue;
+          const monthData = progress[mStr][index];
+          for (let d in monthData) {
+            if (monthData[d] === "✔") count++;
+            total++;
+          }
+        }
+      } else {
+        if (!progress[month] || !progress[month][index]) return { percent: 0, count: 0, total: 0 };
+        if (mode === "day") {
+          const today = new Date().getDate();
+          const status = progress[month][index][today];
+          count = status === "✔" ? 1 : 0;
+          total = 1;
+        } else if (mode === "week") {
+          const today = new Date().getDate();
+          const start = Math.max(1, today - 6);
+          for (let d = start; d <= today; d++) {
+            const status = progress[month][index][d];
+            if (status === "✔") count++;
+            total++;
+          }
+        } else if (mode === "month") {
+          for (let d = 1; d <= days; d++) {
+            const status = progress[month][index][d];
+            if (status === "✔") count++;
+            total++;
+          }
+        }
+      }
+      return total ? { percent: Math.round((count / total) * 100), count, total } : { percent: 0, count: 0, total: 0 };
     }
 
     function renderTable() {
       const month = document.getElementById("monthSelect").value;
       const viewPerson = document.getElementById("personFilter").value;
+      const sortMode = document.getElementById("sortMode").value;
       const days = daysInMonth(month);
       const tableDiv = document.getElementById("trackerTable");
 
@@ -113,83 +159,46 @@
       filter.innerHTML = '<option value="">All</option>' + uniquePeople.map(p => `<option value="${p}">${p}</option>`).join('');
       filter.value = viewPerson;
 
+      let goalList = goals.map((g, i) => ({ ...g, index: i }));
+      if (viewPerson) goalList = goalList.filter(g => g.person === viewPerson);
+      if (sortMode !== "none") {
+        goalList.sort((a, b) => getGoalPercent(b.index, sortMode, month, days).percent - getGoalPercent(a.index, sortMode, month, days).percent);
+      }
+
       let html = "<table><thead><tr><th>Goal</th>";
       for (let d = 1; d <= days; d++) html += `<th>${d}</th>`;
-      html += "<th>Delete</th></tr></thead><tbody>";
+      html += "<th>Progress</th><th>Delete</th></tr></thead><tbody>";
 
-      goals.forEach((goal, i) => {
-        if (viewPerson && goal.person !== viewPerson) return;
-        html += `<tr><td>${goal.name} <span style='font-size:smaller;'>(${goal.person})</span></td>`;
+      goalList.forEach((g, rank) => {
+        const rankLabel = sortMode === "none" ? "" : `${rank + 1}. `;
+        html += `<tr><td>${rankLabel}${g.name} <span style='font-size:smaller;'>(${g.person})</span></td>`;
         for (let d = 1; d <= days; d++) {
-          const status = (progress[month] && progress[month][i] && progress[month][i][d]) || "";
+          const status = (progress[month] && progress[month][g.index] && progress[month][g.index][d]) || "";
           const className = status === "✔" ? "done" : status === "✘" ? "notdone" : "";
-          html += `<td class="${className}" onclick="toggleStatus(${i}, ${d})">${status}</td>`;
+          html += `<td class="${className}" onclick="toggleStatus(${g.index}, ${d})">${status}</td>`;
         }
-        html += `<td><button onclick="deleteGoal(${i})">🗑️</button></td></tr>`;
+        const { count, total, percent } = getGoalPercent(g.index, sortMode === "none" ? "month" : sortMode, month, days);
+        html += `<td>${count} / ${total} (${percent}%)</td>`;
+        html += `<td><button onclick="deleteGoal(${g.index})">🗑️</button></td></tr>`;
       });
 
       html += "</tbody></table>";
       tableDiv.innerHTML = html;
-
-      renderChart();
+      renderChart(goalList, sortMode);
+      renderStats(goalList);
     }
 
-    function renderChart() {
-      const view = document.getElementById("viewMode").value;
+    function renderChart(goalList, sortMode) {
       const month = document.getElementById("monthSelect").value;
-      const viewPerson = document.getElementById("personFilter").value;
       const days = daysInMonth(month);
-
-      const filteredGoals = goals.map((g, i) => ({...g, index: i})).filter(g => !viewPerson || g.person === viewPerson);
-
-      const data = filteredGoals.map(({ index }) => {
-        let count = 0;
-        let total = 0;
-
-        if (!progress[month] || !progress[month][index]) return 0;
-
-        if (view === "day") {
-          const today = new Date().getDate();
-          const status = progress[month][index][today];
-          count = status === "✔" ? 1 : 0;
-          total = 1;
-        } else if (view === "week") {
-          const today = new Date().getDate();
-          const start = Math.max(1, today - 6);
-          for (let d = start; d <= today; d++) {
-            const status = progress[month][index][d];
-            if (status === "✔") count++;
-            total++;
-          }
-        } else if (view === "month") {
-          for (let d = 1; d <= days; d++) {
-            const status = progress[month][index][d];
-            if (status === "✔") count++;
-            total++;
-          }
-        } else if (view === "year") {
-          for (let m = 1; m <= 12; m++) {
-            const mStr = m.toString().padStart(2, '0');
-            if (!progress[mStr] || !progress[mStr][index]) continue;
-            const monthData = progress[mStr][index];
-            for (let d in monthData) {
-              if (monthData[d] === "✔") count++;
-              total++;
-            }
-          }
-        }
-
-        return total ? Math.round((count / total) * 100) : 0;
-      });
-
+      const data = goalList.map((g) => getGoalPercent(g.index, sortMode === "none" ? "month" : sortMode, month, days).percent);
       const ctx = document.getElementById("summaryChart").getContext("2d");
-
       if (chart) chart.destroy();
 
       chart = new Chart(ctx, {
         type: "bar",
         data: {
-          labels: filteredGoals.map(g => g.name + " (" + g.person + ")"),
+          labels: goalList.map((g, i) => (sortMode === "none" ? "" : (i + 1) + ". ") + g.name + " (" + g.person + ")"),
           datasets: [{
             label: "% Complete",
             data: data,
@@ -217,6 +226,29 @@
           }
         }
       });
+    }
+
+    function renderStats(goalList) {
+      const summary = document.getElementById("summaryStats");
+      let totalGoals = goalList.length;
+      let totalChecks = 0;
+      let totalDays = 0;
+
+      goalList.forEach(g => {
+        for (let m = 1; m <= 12; m++) {
+          const mStr = m.toString().padStart(2, '0');
+          if (!progress[mStr] || !progress[mStr][g.index]) continue;
+          for (let d in progress[mStr][g.index]) {
+            if (progress[mStr][g.index][d] === "✔") totalChecks++;
+            totalDays++;
+          }
+        }
+      });
+
+      const avg = totalGoals ? (totalChecks / totalGoals).toFixed(1) : 0;
+      const perc = totalDays ? Math.round((totalChecks / totalDays) * 100) : 0;
+
+      summary.innerHTML = `<p><b>All Goals Total:</b> ${totalChecks} / ${totalDays} ✔ (${perc}% total)<br><b>Avg per Goal:</b> ${avg} days ✔</p>`;
     }
 
     renderTable();
