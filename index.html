@@ -10,10 +10,9 @@
     .notdone { background-color: #f7c5c5; }
     select, input, button { margin: 5px; }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body>
-  <h1>Goal Tracker advanced version</h1>
+  <h1>Goal Tracker</h1>
 
   <label for="trackMode">Track by:</label>
   <select id="trackMode" onchange="updateSelectors(); renderTable()">
@@ -35,10 +34,11 @@
     <option value="year">Year</option>
   </select>
 
-  <label for="yearSelect">Choose Year:</label>
-  <select id="yearSelect" onchange="renderTable()"></select>
+  <label for="yearSelect">Start Year:</label>
+  <input list="yearOptions" id="yearSelect" onchange="renderTable()">
+  <datalist id="yearOptions"></datalist>
 
-  <label for="monthSelect">Choose Month:</label>
+  <label for="monthSelect">Start Month:</label>
   <select id="monthSelect" onchange="renderTable()">
     <option value="01">January</option>
     <option value="02">February</option>
@@ -64,7 +64,6 @@
   <button onclick="addGoal()">Add Goal</button>
 
   <div id="trackerTable"></div>
-  <canvas id="summaryChart" height="150"></canvas>
   <div id="summaryStats"></div>
 
   <script>
@@ -72,12 +71,12 @@
     let progress = JSON.parse(localStorage.getItem("progress") || "{}");
 
     const yearSelect = document.getElementById("yearSelect");
+    const yearOptions = document.getElementById("yearOptions");
     const currentYear = new Date().getFullYear();
     for (let y = 2000; y <= currentYear; y++) {
       const opt = document.createElement("option");
       opt.value = y;
-      opt.textContent = y;
-      yearSelect.appendChild(opt);
+      yearOptions.appendChild(opt);
     }
     yearSelect.value = currentYear;
 
@@ -118,7 +117,7 @@
       const trackMode = document.getElementById("trackMode").value;
       const month = document.getElementById("monthSelect").value;
       const year = document.getElementById("yearSelect").value;
-      const key = `${trackMode}-${year}-${month}`;
+      const key = trackMode === "year" ? `year-${unitKey}` : `${trackMode}-${year}-${month}`;
       if (!progress[key]) progress[key] = [];
       if (!progress[key][goalIndex]) progress[key][goalIndex] = {};
       const current = progress[key][goalIndex][unitKey];
@@ -193,9 +192,9 @@
       html += `<th>Progress</th><th>Delete</th></tr></thead><tbody>`;
 
       goalList.forEach((g, rank) => {
-        const key = `${trackMode}-${year}-${month}`;
         html += `<tr><td>${g.name} <small>(${g.person})</small></td>`;
         unitKeys.forEach(k => {
+          const key = trackMode === "year" ? `year-${k}` : `${trackMode}-${year}-${month}`;
           const val = (progress[key] && progress[key][g.index] && progress[key][g.index][k]) || "";
           const className = val === "✔" ? "done" : val === "✘" ? "notdone" : "";
           html += `<td class="${className}" onclick="toggleStatus(${g.index}, '${k}')">${val}</td>`;
@@ -207,15 +206,10 @@
 
       html += "</tbody></table>";
       tableDiv.innerHTML = html;
-      renderStats(goalList);
     }
 
-    function renderStats(goalList) {
-      const div = document.getElementById("summaryStats");
-      let totalChecks = 0, totalDays = 0;
-      goalList.forEach(g => {
-        for (let k in progress) {
-          const entry = progress[k][g.index];
-          if (!entry) continue;
-          for (let d in entry) {
-            if (entry[d] === "✔") totalChecks++;
+    updateSelectors();
+    renderTable();
+  </script>
+</body>
+</html>
